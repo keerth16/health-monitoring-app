@@ -1,4 +1,4 @@
-.App {
+/* .App {
   text-align: center;
 }
 
@@ -35,4 +35,127 @@
   to {
     transform: rotate(360deg);
   }
+} */
+body {
+  margin: 0;
+  font-family: "Poppins", sans-serif;
+  background: linear-gradient(135deg, #fce3ec 0%, #e8f0fc 100%);
+  background-attachment: fixed;
+  color: #333;
+}
+
+.App {
+  text-align: center;
+  padding: 20px;
+}
+
+.main-header h1 {
+  font-size: 2.2em;
+  font-weight: 800;
+  color: #ff4b7d;
+  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.main-header p {
+  color: #555;
+  margin-top: -10px;
+}
+
+.container {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 25px;
+  margin-top: 20px;
+}
+
+.glass-box {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(12px);
+  border-radius: 20px;
+  padding: 25px;
+  width: 350px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+.input-group {
+  margin-bottom: 15px;
+  text-align: left;
+}
+
+.input-group label {
+  font-weight: 600;
+  display: block;
+  margin-bottom: 5px;
+}
+
+input,
+select {
+  width: 100%;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  outline: none;
+}
+
+.predict-btn {
+  margin-top: 15px;
+  background: linear-gradient(90deg, #ff4b7d, #ff7eb3);
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+  transition: 0.3s;
+  width: 100%;
+}
+
+.predict-btn:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 10px rgba(255, 75, 125, 0.4);
+}
+
+.prediction-card {
+  margin-top: 15px;
+  font-size: 1.3em;
+  font-weight: bold;
+  padding: 12px;
+  border-radius: 12px;
+  color: white;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+}
+
+.progress-bar {
+  margin: 15px auto;
+  width: 80%;
+  height: 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.5);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  transition: width 1s ease;
+}
+
+.confidence-text {
+  color: #333;
+  font-size: 0.9em;
+}
+
+.tip-box {
+  background: #fff6f9;
+  border-left: 5px solid #ff4b7d;
+  border-radius: 8px;
+  padding: 10px;
+  margin-top: 10px;
+  text-align: left;
+}
+
+footer {
+  margin-top: 25px;
+  font-size: 0.85em;
+  color: #777;
 }
