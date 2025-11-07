@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: savemom-health-app
+    env: python
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
+      cd health-frontend && npm install && npm run build
+    startCommand: gunicorn app:app
+    plan: free
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11
