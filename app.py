@@ -156,8 +156,79 @@
 # if __name__ == "__main__":
 #     app.run(debug=True)
 
+#renderrror
+# from flask import Flask, request, jsonify, send_from_directory
+# from flask_cors import CORS
+# import joblib
+# import pandas as pd
+# import os
 
-from flask import Flask, request, jsonify, send_from_directory
+# app = Flask(__name__, static_folder="health-frontend/build", static_url_path="")
+
+# # ✅ Allow both local + deployed frontend
+# CORS(app, resources={r"/*": {"origins": ["http://localhost:3000", "https://savemom-health-app.onrender.com"]}})
+
+# # ✅ Load model + scaler
+# model = joblib.load("model_dir/savemom_rf_model.pkl")
+# scaler = joblib.load("model_dir/scaler.save")
+
+# label_map = {
+#     0: "Moderate Risk Mothers",
+#     1: "High Risk Mothers",
+#     2: "Critical Risk Mothers"
+# }
+
+
+# @app.route("/predict", methods=["POST", "OPTIONS"])
+# def predict():
+#     if request.method == "OPTIONS":
+#         # Handle preflight
+#         response = jsonify({"message": "CORS preflight OK"})
+#         response.headers["Access-Control-Allow-Origin"] = request.headers.get("Origin")
+#         response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+#         response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+#         return response
+
+#     try:
+#         data = request.json
+#         features = pd.DataFrame([{
+#             "Temperature": data["Temperature"],
+#             "SpO2": data["SpO2"],
+#             "SystolicBP": data["SystolicBP"],
+#             "DiastolicBP": data["DiastolicBP"],
+#             "BloodSugar": data["BloodSugar"],
+#             "HeartRate": data["HeartRate"],
+#             "BMI": data["BMI"],
+#             "ECG": data["ECG"]
+#         }])
+
+#         columns = ["Temperature", "SpO2", "SystolicBP", "DiastolicBP", "BloodSugar", "HeartRate", "BMI", "ECG"]
+#         features_scaled = pd.DataFrame(scaler.transform(features), columns=columns)
+#         prediction = model.predict(features_scaled)[0]
+#         risk_label = label_map.get(prediction, "Unknown Risk Level")
+
+#         response = jsonify({"prediction": risk_label})
+#         response.headers["Access-Control-Allow-Origin"] = request.headers.get("Origin")
+#         return response
+
+#     except Exception as e:
+#         response = jsonify({"error": str(e)})
+#         response.headers["Access-Control-Allow-Origin"] = request.headers.get("Origin")
+#         return response, 500
+
+
+# @app.route("/", defaults={"path": ""})
+# @app.route("/<path:path>")
+# def serve(path):
+#     if path != "" and os.path.exists(f"health-frontend/build/{path}"):
+#         return send_from_directory("health-frontend/build", path)
+#     else:
+#         return send_from_directory("health-frontend/build", "index.html")
+
+
+# if __name__ == "__main__":
+#     app.run(host="0.0.0.0", port=5000, debug=True)
+from flask import Flask, request, jsonify, send_from_directory, make_response
 from flask_cors import CORS
 import joblib
 import pandas as pd
@@ -165,10 +236,16 @@ import os
 
 app = Flask(__name__, static_folder="health-frontend/build", static_url_path="")
 
-# ✅ Allow both local + deployed frontend
-CORS(app, resources={r"/*": {"origins": ["http://localhost:3000", "https://savemom-health-app.onrender.com"]}})
+# ✅ Explicitly allow your deployed frontend and localhost
+allowed_origins = [
+    "https://savemom-health-app.onrender.com",
+    "http://localhost:3000"
+]
 
-# ✅ Load model + scaler
+# ✅ Enable CORS globally
+CORS(app, resources={r"/*": {"origins": allowed_origins}}, supports_credentials=True)
+
+# ✅ Load model and scaler
 model = joblib.load("model_dir/savemom_rf_model.pkl")
 scaler = joblib.load("model_dir/scaler.save")
 
@@ -181,13 +258,14 @@ label_map = {
 
 @app.route("/predict", methods=["POST", "OPTIONS"])
 def predict():
+    origin = request.headers.get("Origin")
     if request.method == "OPTIONS":
-        # Handle preflight
-        response = jsonify({"message": "CORS preflight OK"})
-        response.headers["Access-Control-Allow-Origin"] = request.headers.get("Origin")
-        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        # 🟢 Handle CORS preflight manually
+        response = make_response()
+        response.headers["Access-Control-Allow-Origin"] = origin if origin in allowed_origins else ""
         response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
-        return response
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response, 200
 
     try:
         data = request.json
@@ -202,21 +280,24 @@ def predict():
             "ECG": data["ECG"]
         }])
 
-        columns = ["Temperature", "SpO2", "SystolicBP", "DiastolicBP", "BloodSugar", "HeartRate", "BMI", "ECG"]
+        columns = ["Temperature", "SpO2", "SystolicBP", "DiastolicBP",
+                   "BloodSugar", "HeartRate", "BMI", "ECG"]
+
         features_scaled = pd.DataFrame(scaler.transform(features), columns=columns)
         prediction = model.predict(features_scaled)[0]
         risk_label = label_map.get(prediction, "Unknown Risk Level")
 
         response = jsonify({"prediction": risk_label})
-        response.headers["Access-Control-Allow-Origin"] = request.headers.get("Origin")
+        response.headers["Access-Control-Allow-Origin"] = origin if origin in allowed_origins else ""
         return response
 
     except Exception as e:
         response = jsonify({"error": str(e)})
-        response.headers["Access-Control-Allow-Origin"] = request.headers.get("Origin")
+        response.headers["Access-Control-Allow-Origin"] = origin if origin in allowed_origins else ""
         return response, 500
 
 
+# ✅ Serve frontend build (if using combined deployment)
 @app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
 def serve(path):
