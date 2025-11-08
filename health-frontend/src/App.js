@@ -545,8 +545,15 @@ function App() {
     }
 
     try {
-      const res = await fetch("/predict", {
+      //const res = await fetch("/predict", {
       //const res = await fetch("http://127.0.0.1:5000/predict", {
+      const API_URL =
+  process.env.NODE_ENV === "production"
+    ? "https://health-monitoring-backend.onrender.com/predict"
+    : "http://127.0.0.1:5000/predict";
+
+const res = await fetch(API_URL, {
+
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
