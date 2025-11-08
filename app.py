@@ -94,34 +94,101 @@
 
 # if __name__ == "__main__":
 #     app.run(port=5000, debug=True)
+# from flask import Flask, request, jsonify, send_from_directory
+# from flask_cors import CORS
+# from flask_cors import CORS, cross_origin
+
+# import joblib
+# import pandas as pd
+# import os
+
+# app = Flask(__name__, static_folder="health-frontend/build", static_url_path="")
+
+# # ✅ Allow both your deployed frontend and localhost (for testing)
+# CORS(app, resources={r"/*": {"origins": ["https://savemom-health-app.onrender.com", "http://localhost:3000"]}})
+
+
+# # Load your model and scaler
+# model = joblib.load("model_dir/savemom_rf_model.pkl")
+# scaler = joblib.load("model_dir/scaler.save")
+
+# # Label mapping
+# label_map = {
+#     0: "Moderate Risk Mothers",
+#     1: "High Risk Mothers",
+#     2: "Critical Risk Mothers"
+# }
+
+# @app.route("/predict", methods=["POST"])
+# @cross_origin(origins=["https://savemom-health-app.onrender.com", "http://localhost:3000"])
+# def predict():
+#     try:
+#         data = request.json
+#         features = pd.DataFrame([{
+#             "Temperature": data["Temperature"],
+#             "SpO2": data["SpO2"],
+#             "SystolicBP": data["SystolicBP"],
+#             "DiastolicBP": data["DiastolicBP"],
+#             "BloodSugar": data["BloodSugar"],
+#             "HeartRate": data["HeartRate"],
+#             "BMI": data["BMI"],
+#             "ECG": data["ECG"]
+#         }])
+#         columns = ["Temperature", "SpO2", "SystolicBP", "DiastolicBP", "BloodSugar", "HeartRate", "BMI", "ECG"]
+#         features = features[columns]
+#         features_scaled = pd.DataFrame(scaler.transform(features), columns=columns)
+#         prediction = model.predict(features_scaled)[0]
+#         risk_label = label_map.get(prediction, "Unknown Risk Level")
+
+#         return jsonify({"prediction": risk_label})
+#     except Exception as e:
+#         return jsonify({"error": str(e)})
+
+# # Serve React frontend
+# @app.route("/", defaults={'path': ''})
+# @app.route("/<path:path>")
+# def serve(path):
+#     if path != "" and os.path.exists(f"health-frontend/build/{path}"):
+#         return send_from_directory("health-frontend/build", path)
+#     else:
+#         return send_from_directory("health-frontend/build", "index.html")
+
+# if __name__ == "__main__":
+#     app.run(debug=True)
+
+
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-from flask_cors import CORS, cross_origin
-
 import joblib
 import pandas as pd
 import os
 
 app = Flask(__name__, static_folder="health-frontend/build", static_url_path="")
 
-# ✅ Allow both your deployed frontend and localhost (for testing)
-CORS(app, resources={r"/*": {"origins": ["https://savemom-health-app.onrender.com", "http://localhost:3000"]}})
+# ✅ Allow both local + deployed frontend
+CORS(app, resources={r"/*": {"origins": ["http://localhost:3000", "https://savemom-health-app.onrender.com"]}})
 
-
-# Load your model and scaler
+# ✅ Load model + scaler
 model = joblib.load("model_dir/savemom_rf_model.pkl")
 scaler = joblib.load("model_dir/scaler.save")
 
-# Label mapping
 label_map = {
     0: "Moderate Risk Mothers",
     1: "High Risk Mothers",
     2: "Critical Risk Mothers"
 }
 
-@app.route("/predict", methods=["POST"])
-@cross_origin(origins=["https://savemom-health-app.onrender.com", "http://localhost:3000"])
+
+@app.route("/predict", methods=["POST", "OPTIONS"])
 def predict():
+    if request.method == "OPTIONS":
+        # Handle preflight
+        response = jsonify({"message": "CORS preflight OK"})
+        response.headers["Access-Control-Allow-Origin"] = request.headers.get("Origin")
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        return response
+
     try:
         data = request.json
         features = pd.DataFrame([{
@@ -134,18 +201,23 @@ def predict():
             "BMI": data["BMI"],
             "ECG": data["ECG"]
         }])
+
         columns = ["Temperature", "SpO2", "SystolicBP", "DiastolicBP", "BloodSugar", "HeartRate", "BMI", "ECG"]
-        features = features[columns]
         features_scaled = pd.DataFrame(scaler.transform(features), columns=columns)
         prediction = model.predict(features_scaled)[0]
         risk_label = label_map.get(prediction, "Unknown Risk Level")
 
-        return jsonify({"prediction": risk_label})
-    except Exception as e:
-        return jsonify({"error": str(e)})
+        response = jsonify({"prediction": risk_label})
+        response.headers["Access-Control-Allow-Origin"] = request.headers.get("Origin")
+        return response
 
-# Serve React frontend
-@app.route("/", defaults={'path': ''})
+    except Exception as e:
+        response = jsonify({"error": str(e)})
+        response.headers["Access-Control-Allow-Origin"] = request.headers.get("Origin")
+        return response, 500
+
+
+@app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
 def serve(path):
     if path != "" and os.path.exists(f"health-frontend/build/{path}"):
@@ -153,5 +225,6 @@ def serve(path):
     else:
         return send_from_directory("health-frontend/build", "index.html")
 
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)
