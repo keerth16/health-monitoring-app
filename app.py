@@ -96,6 +96,8 @@
 #     app.run(port=5000, debug=True)
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
+from flask_cors import CORS, cross_origin
+
 import joblib
 import pandas as pd
 import os
@@ -118,6 +120,7 @@ label_map = {
 }
 
 @app.route("/predict", methods=["POST"])
+@cross_origin(origins=["https://savemom-health-app.onrender.com", "http://localhost:3000"])
 def predict():
     try:
         data = request.json
