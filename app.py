@@ -228,28 +228,31 @@
 
 # if __name__ == "__main__":
 #     app.run(host="0.0.0.0", port=5000, debug=True)
-from flask import Flask, request, jsonify, send_from_directory, make_response
+
+
+
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import joblib
 import pandas as pd
 import os
 
+# Initialize Flask app
 app = Flask(__name__, static_folder="health-frontend/build", static_url_path="")
 
-# ✅ Explicitly allow deployed frontend and local frontend
+# ✅ Allow both frontend URLs
 allowed_origins = [
     "https://savemom-health-app.onrender.com",
     "http://localhost:3000"
 ]
 
-# ✅ Enable CORS globally
-CORS(app, resources={r"/*": {"origins": allowed_origins}}, supports_credentials=True)
+# ✅ CORS setup
+CORS(app, origins=allowed_origins, supports_credentials=True)
 
-# ✅ Load model and scaler
+# ✅ Load model & scaler
 model = joblib.load("model_dir/savemom_rf_model.pkl")
 scaler = joblib.load("model_dir/scaler.save")
 
-# ✅ Label mapping
 label_map = {
     0: "Moderate Risk Mothers",
     1: "High Risk Mothers",
@@ -257,21 +260,30 @@ label_map = {
 }
 
 
+@app.after_request
+def add_cors_headers(response):
+    """
+    ✅ Force-add CORS headers to *every* response (Render-safe).
+    Flask-CORS sometimes misses preflights on Render’s proxy.
+    """
+    origin = request.headers.get("Origin")
+    if origin in allowed_origins:
+        response.headers.add("Access-Control-Allow-Origin", origin)
+        response.headers.add("Access-Control-Allow-Headers", "Content-Type,Authorization")
+        response.headers.add("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+        response.headers.add("Vary", "Origin")
+    return response
+
+
 @app.route("/predict", methods=["POST", "OPTIONS"])
 def predict():
-    origin = request.headers.get("Origin")
-
-    # ✅ Handle CORS preflight requests explicitly
     if request.method == "OPTIONS":
-        response = jsonify({"message": "CORS preflight OK"})
-        response.headers["Access-Control-Allow-Origin"] = origin if origin in allowed_origins else ""
-        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
-        response.headers["Access-Control-Max-Age"] = "86400"
-        return response, 200
+        # ✅ Respond to preflight manually
+        return jsonify({"message": "CORS preflight successful"}), 200
 
     try:
-        data = request.json
+        data = request.get_json(force=True)
+
         features = pd.DataFrame([{
             "Temperature": data["Temperature"],
             "SpO2": data["SpO2"],
@@ -290,30 +302,17 @@ def predict():
         prediction = model.predict(features_scaled)[0]
         risk_label = label_map.get(prediction, "Unknown Risk Level")
 
-        response = jsonify({"prediction": risk_label})
-        response.headers["Access-Control-Allow-Origin"] = origin if origin in allowed_origins else ""
-        response.headers["Vary"] = "Origin"
-        return response
+        return jsonify({"prediction": risk_label})
 
     except Exception as e:
-        response = jsonify({"error": str(e)})
-        response.headers["Access-Control-Allow-Origin"] = origin if origin in allowed_origins else ""
-        response.headers["Vary"] = "Origin"
-        return response, 500
+        return jsonify({"error": str(e)}), 500
 
 
-# ✅ Optional: Quick CORS test endpoint (for Render debugging)
-@app.route("/ping", methods=["GET", "OPTIONS"])
+@app.route("/ping")
 def ping():
-    origin = request.headers.get("Origin")
-    response = jsonify({"message": "CORS OK"})
-    response.headers["Access-Control-Allow-Origin"] = origin if origin in allowed_origins else ""
-    response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
-    return response, 200
+    return jsonify({"message": "Server alive ✅"}), 200
 
 
-# ✅ Serve React build (for combined deployment)
 @app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
 def serve(path):
