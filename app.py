@@ -236,7 +236,7 @@ import os
 
 app = Flask(__name__, static_folder="health-frontend/build", static_url_path="")
 
-# ✅ Explicitly allow your deployed frontend and localhost
+# ✅ Explicitly allow deployed frontend and local frontend
 allowed_origins = [
     "https://savemom-health-app.onrender.com",
     "http://localhost:3000"
@@ -249,6 +249,7 @@ CORS(app, resources={r"/*": {"origins": allowed_origins}}, supports_credentials=
 model = joblib.load("model_dir/savemom_rf_model.pkl")
 scaler = joblib.load("model_dir/scaler.save")
 
+# ✅ Label mapping
 label_map = {
     0: "Moderate Risk Mothers",
     1: "High Risk Mothers",
@@ -259,12 +260,14 @@ label_map = {
 @app.route("/predict", methods=["POST", "OPTIONS"])
 def predict():
     origin = request.headers.get("Origin")
+
+    # ✅ Handle CORS preflight requests explicitly
     if request.method == "OPTIONS":
-        # 🟢 Handle CORS preflight manually
-        response = make_response()
+        response = jsonify({"message": "CORS preflight OK"})
         response.headers["Access-Control-Allow-Origin"] = origin if origin in allowed_origins else ""
         response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
         response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        response.headers["Access-Control-Max-Age"] = "86400"
         return response, 200
 
     try:
@@ -289,15 +292,28 @@ def predict():
 
         response = jsonify({"prediction": risk_label})
         response.headers["Access-Control-Allow-Origin"] = origin if origin in allowed_origins else ""
+        response.headers["Vary"] = "Origin"
         return response
 
     except Exception as e:
         response = jsonify({"error": str(e)})
         response.headers["Access-Control-Allow-Origin"] = origin if origin in allowed_origins else ""
+        response.headers["Vary"] = "Origin"
         return response, 500
 
 
-# ✅ Serve frontend build (if using combined deployment)
+# ✅ Optional: Quick CORS test endpoint (for Render debugging)
+@app.route("/ping", methods=["GET", "OPTIONS"])
+def ping():
+    origin = request.headers.get("Origin")
+    response = jsonify({"message": "CORS OK"})
+    response.headers["Access-Control-Allow-Origin"] = origin if origin in allowed_origins else ""
+    response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    return response, 200
+
+
+# ✅ Serve React build (for combined deployment)
 @app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
 def serve(path):
