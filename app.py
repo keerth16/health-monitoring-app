@@ -101,7 +101,10 @@ import pandas as pd
 import os
 
 app = Flask(__name__, static_folder="health-frontend/build", static_url_path="")
-CORS(app)
+
+# ✅ Allow both your deployed frontend and localhost (for testing)
+CORS(app, resources={r"/*": {"origins": ["https://savemom-health-app.onrender.com", "http://localhost:3000"]}})
+
 
 # Load your model and scaler
 model = joblib.load("model_dir/savemom_rf_model.pkl")
