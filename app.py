@@ -237,53 +237,38 @@ import joblib
 import pandas as pd
 import os
 
-# Initialize Flask app
+# Initialize Flask
 app = Flask(__name__, static_folder="health-frontend/build", static_url_path="")
 
-# ✅ Allow both frontend URLs
-allowed_origins = [
-    "https://savemom-health-app.onrender.com",
-    "http://localhost:3000"
-]
+# ✅ Enable CORS before defining routes
+CORS(
+    app,
+    origins=["https://savemom-health-app.onrender.com", "http://localhost:3000"],
+    methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type"],
+    supports_credentials=True
+)
 
-# ✅ CORS setup
-CORS(app, origins=allowed_origins, supports_credentials=True)
-
-# ✅ Load model & scaler
+# ✅ Load model and scaler
 model = joblib.load("model_dir/savemom_rf_model.pkl")
 scaler = joblib.load("model_dir/scaler.save")
 
+# ✅ Risk label mapping
 label_map = {
     0: "Moderate Risk Mothers",
     1: "High Risk Mothers",
     2: "Critical Risk Mothers"
 }
 
-
-@app.after_request
-def add_cors_headers(response):
-    """
-    ✅ Force-add CORS headers to *every* response (Render-safe).
-    Flask-CORS sometimes misses preflights on Render’s proxy.
-    """
-    origin = request.headers.get("Origin")
-    if origin in allowed_origins:
-        response.headers.add("Access-Control-Allow-Origin", origin)
-        response.headers.add("Access-Control-Allow-Headers", "Content-Type,Authorization")
-        response.headers.add("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
-        response.headers.add("Vary", "Origin")
-    return response
-
-
 @app.route("/predict", methods=["POST", "OPTIONS"])
 def predict():
     if request.method == "OPTIONS":
-        # ✅ Respond to preflight manually
-        return jsonify({"message": "CORS preflight successful"}), 200
+        return jsonify({"message": "CORS preflight success"}), 200
 
     try:
         data = request.get_json(force=True)
 
+        # Convert to DataFrame
         features = pd.DataFrame([{
             "Temperature": data["Temperature"],
             "SpO2": data["SpO2"],
@@ -298,6 +283,7 @@ def predict():
         columns = ["Temperature", "SpO2", "SystolicBP", "DiastolicBP",
                    "BloodSugar", "HeartRate", "BMI", "ECG"]
 
+        # Scale and predict
         features_scaled = pd.DataFrame(scaler.transform(features), columns=columns)
         prediction = model.predict(features_scaled)[0]
         risk_label = label_map.get(prediction, "Unknown Risk Level")
@@ -305,14 +291,18 @@ def predict():
         return jsonify({"prediction": risk_label})
 
     except Exception as e:
+        print(f"❌ Error: {e}")
         return jsonify({"error": str(e)}), 500
 
 
+# ✅ Test endpoint for debugging Render
 @app.route("/ping")
 def ping():
-    return jsonify({"message": "Server alive ✅"}), 200
+    print("🔍 /ping called from:", request.headers.get("Origin"))
+    return jsonify({"status": "Backend is alive", "origin": request.headers.get("Origin")})
 
 
+# ✅ Serve React app (for combined deployment)
 @app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
 def serve(path):
