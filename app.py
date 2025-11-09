@@ -229,46 +229,34 @@
 # if __name__ == "__main__":
 #     app.run(host="0.0.0.0", port=5000, debug=True)
 
-
-
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import joblib
 import pandas as pd
 import os
 
-# Initialize Flask
+# Flask setup
 app = Flask(__name__, static_folder="health-frontend/build", static_url_path="")
 
-# ✅ Enable CORS before defining routes
-CORS(
-    app,
-    origins=["https://savemom-health-app.onrender.com", "http://localhost:3000"],
-    methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type"],
-    supports_credentials=True
-)
+# Enable CORS for local dev (Render won’t trigger CORS when frontend + backend are together)
+CORS(app, origins=["http://localhost:3000"])
 
-# ✅ Load model and scaler
+# Load model and scaler
 model = joblib.load("model_dir/savemom_rf_model.pkl")
 scaler = joblib.load("model_dir/scaler.save")
 
-# ✅ Risk label mapping
+# Label map
 label_map = {
     0: "Moderate Risk Mothers",
     1: "High Risk Mothers",
     2: "Critical Risk Mothers"
 }
 
-@app.route("/predict", methods=["POST", "OPTIONS"])
+# Prediction endpoint
+@app.route("/predict", methods=["POST"])
 def predict():
-    if request.method == "OPTIONS":
-        return jsonify({"message": "CORS preflight success"}), 200
-
     try:
         data = request.get_json(force=True)
-
-        # Convert to DataFrame
         features = pd.DataFrame([{
             "Temperature": data["Temperature"],
             "SpO2": data["SpO2"],
@@ -279,30 +267,17 @@ def predict():
             "BMI": data["BMI"],
             "ECG": data["ECG"]
         }])
-
         columns = ["Temperature", "SpO2", "SystolicBP", "DiastolicBP",
                    "BloodSugar", "HeartRate", "BMI", "ECG"]
-
-        # Scale and predict
         features_scaled = pd.DataFrame(scaler.transform(features), columns=columns)
         prediction = model.predict(features_scaled)[0]
         risk_label = label_map.get(prediction, "Unknown Risk Level")
 
         return jsonify({"prediction": risk_label})
-
     except Exception as e:
-        print(f"❌ Error: {e}")
         return jsonify({"error": str(e)}), 500
 
-
-# ✅ Test endpoint for debugging Render
-@app.route("/ping")
-def ping():
-    print("🔍 /ping called from:", request.headers.get("Origin"))
-    return jsonify({"status": "Backend is alive", "origin": request.headers.get("Origin")})
-
-
-# ✅ Serve React app (for combined deployment)
+# Serve React frontend
 @app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
 def serve(path):
@@ -311,6 +286,5 @@ def serve(path):
     else:
         return send_from_directory("health-frontend/build", "index.html")
 
-
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000)
